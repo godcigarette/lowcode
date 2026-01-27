@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAtom, useSetAtom } from 'jotai';
 import { ComponentInstance, ComponentType } from '../../../domain/Component';
 import { ComponentRegistryService } from '../../../application/services/ComponentRegistryService';
@@ -9,19 +9,13 @@ import {
   selectedIdAtom, 
   addComponentAtom, 
   deleteComponentAtom, 
+  updateComponentAtom,
   isPublishingAtom, 
   publishResultAtom,
   publishConfigAtom
 } from '../../../infrastructure/state/atoms';
-import { 
-  ButtonRenderer, 
-  TagRenderer, 
-  MetricCardRenderer, 
-  DataTableRenderer, 
-  ChartRenderer, 
-  RemoteWidgetRenderer 
-} from '../Renderer/RendererComponents';
-import { Trash2, Info, Box, CloudUpload, Loader2, CheckCircle } from 'lucide-react';
+import { COMPONENT_IMPLEMENTATIONS } from '../Renderer/RendererComponents';
+import { Trash2, Info, Box, UploadCloud, Loader2, CheckCircle, ArrowDownRight } from 'lucide-react';
 
 const ComponentWrapper: React.FC<{
   node: ComponentInstance;
@@ -30,57 +24,33 @@ const ComponentWrapper: React.FC<{
   const [selectedId, setSelectedId] = useAtom(selectedIdAtom);
   const deleteComponent = useSetAtom(deleteComponentAtom);
   const addComponent = useSetAtom(addComponentAtom);
+  const updateComponent = useSetAtom(updateComponentAtom);
   
   const [isOver, setIsOver] = useState(false);
+  const elementRef = useRef<HTMLDivElement>(null);
+  
   const def = ComponentRegistryService.get(node.type);
   const isSelected = selectedId === node.id;
   const isContainer = def.isContainer;
 
-  const renderContent = () => {
-    switch (node.type) {
-      case 'Button': return <ButtonRenderer {...node.props} />;
-      case 'Tag': return <TagRenderer {...node.props} />;
-      case 'MetricCard': return <MetricCardRenderer {...node.props} />;
-      case 'DataTable': return <DataTableRenderer {...node.props} />;
-      case 'Chart': return <ChartRenderer {...node.props} />;
-      case 'RemoteWidget': return <RemoteWidgetRenderer {...node.props} />;
-      case 'Container': 
-        return (
-          <div className={`
-             min-h-[100px] w-full transition-colors duration-200 rounded
-             ${node.props.padding} ${node.props.layout === 'flex-row' ? 'flex flex-row space-x-2' : 'flex flex-col space-y-2'}
-             ${isOver && !isSelected ? 'bg-blue-50 ring-2 ring-blue-300 ring-inset' : ''}
-          `}
-          style={{
-             backgroundColor: node.props.background,
-             borderColor: node.props.borderColor,
-             borderWidth: node.props.borderWidth
-          }}
-          >
-            {node.children.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 m-2 rounded bg-white/50">
-                <Box size={20} className="mb-2 opacity-50"/>
-                <span className="text-xs">Drop items here</span>
-              </div>
-            ) : (
-              node.children.map(child => (
-                <ComponentWrapper 
-                  key={child.id} 
-                  node={child} 
-                  depth={depth + 1}
-                />
-              ))
-            )}
-          </div>
-        );
-      default: return null;
-    }
-  };
+  // Retrieve the Renderer from Registry
+  const Renderer = COMPONENT_IMPLEMENTATIONS[node.type] || COMPONENT_IMPLEMENTATIONS['Container'];
+
+  // Recursively render children
+  const childrenNodes = node.children.map(child => (
+    <ComponentWrapper 
+      key={child.id} 
+      node={child} 
+      depth={depth + 1}
+    />
+  ));
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isContainer) setIsOver(true);
+    if (isContainer) {
+      setIsOver(true);
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -101,6 +71,57 @@ const ComponentWrapper: React.FC<{
          addComponent({ newItem: newComponent, targetId: node.id });
       }
     }
+  };
+
+  // --- Resizing Logic ---
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!elementRef.current) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    
+    // Get current dimensions
+    const rect = elementRef.current.getBoundingClientRect();
+    const startWidth = rect.width;
+    const startHeight = rect.height;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = startWidth + (moveEvent.clientX - startX);
+      const newHeight = startHeight + (moveEvent.clientY - startY);
+      
+      // We only update local DOM style for performance during drag
+      // Actual prop update happens on mouseup
+      if (elementRef.current) {
+         // This assumes the renderer respects width/height style or we force it via wrapper
+         // For now, we are updating the wrapper size? No, Renderer handles size props.
+         // We can't update Renderer props in real-time easily without Atom updates.
+         // So for smooth preview, we might just set the wrapper style directly
+         // But here we will trigger prop updates, maybe debounced?
+         // Let's do straightforward prop updates but maybe not on every pixel if slow.
+         // For this demo, let's just use atoms. If it lags, we optimize.
+         updateComponent({
+            id: node.id,
+            updates: {
+               props: {
+                 ...node.props,
+                 width: `${Math.max(50, newWidth)}px`,
+                 height: `${Math.max(20, newHeight)}px`
+               }
+            }
+         });
+      }
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
   };
 
   return (
@@ -127,12 +148,38 @@ const ComponentWrapper: React.FC<{
         </div>
       )}
       
-      <div className={`
-        relative rounded transition-all duration-200
-        ${isSelected ? 'ring-2 ring-blue-600 ring-offset-2' : 'hover:ring-1 hover:ring-blue-300 ring-offset-1'}
-        ${depth === 0 ? 'h-full' : ''}
-      `}>
-         {renderContent()}
+      <div 
+        ref={elementRef}
+        className={`
+          relative rounded transition-all duration-75
+          ${isSelected ? 'ring-2 ring-blue-600 ring-offset-2' : 'hover:ring-1 hover:ring-blue-300 ring-offset-1'}
+          ${depth === 0 ? 'h-full' : ''}
+          ${isOver && !isSelected ? 'ring-2 ring-blue-300 ring-inset bg-blue-50/30' : ''}
+        `}
+      >
+         <Renderer {...node.props} _isCanvas={true}>
+            {childrenNodes}
+         </Renderer>
+         
+         {/* Container Empty State Helper */}
+         {isContainer && node.children.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+               <div className="flex flex-col items-center justify-center text-gray-400 opacity-40">
+                 <Box size={20} className="mb-1"/>
+                 <span className="text-[10px]">Empty {def.label}</span>
+               </div>
+            </div>
+         )}
+
+         {/* Resize Handle (Only if selected) */}
+         {isSelected && (
+           <div 
+             className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-50 flex items-center justify-center text-blue-600 bg-white/50 rounded-tl"
+             onMouseDown={handleResizeMouseDown}
+           >
+              <ArrowDownRight size={12} strokeWidth={3} />
+           </div>
+         )}
       </div>
     </div>
   );
@@ -145,6 +192,7 @@ export const CanvasPanel: React.FC = () => {
   
   const addComponent = useSetAtom(addComponentAtom);
   const publishConfig = useSetAtom(publishConfigAtom);
+  const setSelectedId = useSetAtom(selectedIdAtom);
 
   const handleRootDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -160,6 +208,7 @@ export const CanvasPanel: React.FC = () => {
       className="flex-1 bg-gray-100 flex flex-col h-full overflow-hidden relative"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleRootDrop}
+      onClick={() => setSelectedId(null)}
     >
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-10">
         <h1 className="text-lg font-bold text-gray-800">OpsCanvas</h1>
@@ -169,11 +218,11 @@ export const CanvasPanel: React.FC = () => {
              <span>Drag & Drop Configurator</span>
            </div>
            <button 
-             onClick={publishConfig}
+             onClick={(e) => { e.stopPropagation(); publishConfig(); }}
              disabled={isPublishing}
              className="flex items-center space-x-2 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-all"
            >
-             {isPublishing ? <Loader2 size={14} className="animate-spin" /> : <CloudUpload size={14} />}
+             {isPublishing ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
              <span>{isPublishing ? 'Building...' : 'Publish'}</span>
            </button>
         </div>
@@ -192,10 +241,10 @@ export const CanvasPanel: React.FC = () => {
              <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none">
                 <Box size={48} className="mb-4 opacity-20" />
                 <p className="text-lg font-medium opacity-40">Canvas is Empty</p>
-                <p className="text-sm opacity-30 mt-2">Drag Basic or Data components here to start</p>
+                <p className="text-sm opacity-30 mt-2">Drag components here to start</p>
              </div>
            ) : (
-             <div className="space-y-4 relative z-0">
+             <div className="space-y-4 relative z-0 flex flex-col h-full">
                {tree.map(node => (
                  <ComponentWrapper 
                     key={node.id} 

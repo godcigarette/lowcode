@@ -2,12 +2,13 @@
 import { LucideIcon } from 'lucide-react';
 import { Configurable, PropSchema } from './Configurable';
 
-export type ComponentType = 'Container' | 'Button' | 'Tag' | 'MetricCard' | 'DataTable' | 'Chart' | 'RemoteWidget';
+// Changed from union type to string to allow open registration
+export type ComponentType = string;
 
 export interface ComponentDefinition extends Configurable {
   type: ComponentType;
   label: string;
-  category: 'Basic' | 'Data' | 'Module Federation';
+  category: 'Basic' | 'Data' | 'Module Federation' | 'Ant Design' | 'Interactive';
   icon: LucideIcon;
   isContainer?: boolean;
 }

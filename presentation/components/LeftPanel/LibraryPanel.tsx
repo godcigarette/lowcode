@@ -5,7 +5,7 @@ import { ComponentRegistryService } from '../../../application/services/Componen
 import { ComponentPreview } from '../Renderer/RendererComponents';
 
 export const LibraryPanel: React.FC = () => {
-  const categories = ['Basic', 'Data', 'Module Federation'];
+  const categories = ['Basic', 'Data', 'Ant Design', 'Interactive', 'Module Federation'];
   const [hoveredComp, setHoveredComp] = useState<{ type: ComponentType; y: number } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 

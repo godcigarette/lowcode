@@ -56,6 +56,24 @@ export const PropertyPanel: React.FC = () => {
     });
   };
 
+  // Helper to determine if a field should be shown based on component state
+  const shouldShowField = (key: string) => {
+    if (selectedComponent.type === 'Button' || selectedComponent.type === 'AntdButton') {
+      const actionType = selectedComponent.props.actionType;
+      
+      // Fields specific to API Requests
+      if (['apiUrl', 'method', 'responseKey'].includes(key)) {
+        return actionType === 'apiRequest';
+      }
+      
+      // Fields specific to Setting Variables
+      if (['variableKey', 'variableValue'].includes(key)) {
+        return actionType === 'setVariable';
+      }
+    }
+    return true;
+  };
+
   return (
     <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden shadow-xl z-20">
       <div className="p-4 border-b border-gray-200 bg-gray-50">
@@ -76,123 +94,128 @@ export const PropertyPanel: React.FC = () => {
           </div>
         )}
 
-        {(Object.entries(schema) as [string, PropSchema][]).map(([key, field]) => (
-          <div key={key} className="space-y-1">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                {field.label}
-              </label>
-              {selectedComponent.dynamicSchema && selectedComponent.dynamicSchema[key] && (
-                 <span className="text-[9px] bg-purple-100 text-purple-700 px-1 rounded border border-purple-200">REMOTE</span>
-              )}
-            </div>
-            
-            {field.description && (
-              <p className="text-[10px] text-gray-400 mb-1">{field.description}</p>
-            )}
-            
-            {field.type === 'text' && (
-              <input 
-                type="text" 
-                value={selectedComponent.props[key] || ''}
-                onChange={e => handleChange(key, e.target.value)}
-                className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
-              />
-            )}
+        {(Object.entries(schema) as [string, PropSchema][]).map(([key, field]) => {
+          if (!shouldShowField(key)) return null;
 
-            {field.type === 'number' && (
-              <input 
-                type="number" 
-                value={selectedComponent.props[key] || 0}
-                onChange={e => handleChange(key, Number(e.target.value))}
-                className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
-              />
-            )}
-
-            {field.type === 'boolean' && (
-              <div className="flex items-center mt-1">
-                <input
-                  type="checkbox"
-                  checked={selectedComponent.props[key] || false}
-                  onChange={e => handleChange(key, e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-600">Enabled</span>
+          return (
+            <div key={key} className="space-y-1 animate-in fade-in duration-300">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                  {field.label}
+                </label>
+                {selectedComponent.dynamicSchema && selectedComponent.dynamicSchema[key] && (
+                  <span className="text-[9px] bg-purple-100 text-purple-700 px-1 rounded border border-purple-200">REMOTE</span>
+                )}
               </div>
-            )}
-
-            {field.type === 'color' && (
-              <div className="flex items-center space-x-2">
+              
+              {field.description && (
+                <p className="text-[10px] text-gray-400 mb-1">{field.description}</p>
+              )}
+              
+              {field.type === 'text' && (
                 <input 
-                  type="color" 
-                  value={selectedComponent.props[key] || '#ffffff'}
-                  onChange={e => handleChange(key, e.target.value)}
-                  className="h-8 w-12 border border-gray-300 p-0.5 rounded cursor-pointer"
-                />
-                <input 
-                  type="text"
+                  type="text" 
                   value={selectedComponent.props[key] || ''}
                   onChange={e => handleChange(key, e.target.value)}
-                  className="flex-1 text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border font-mono"
+                  className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
                 />
-              </div>
-            )}
+              )}
 
-            {field.type === 'select' && (
-              <select 
-                value={selectedComponent.props[key] || ''}
-                onChange={e => handleChange(key, e.target.value)}
-                className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-white"
-              >
-                <option value="" disabled>Select option</option>
-                {field.options?.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            )}
+              {field.type === 'number' && (
+                <input 
+                  type="number" 
+                  value={selectedComponent.props[key] || 0}
+                  onChange={e => handleChange(key, Number(e.target.value))}
+                  className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
+                />
+              )}
 
-            {field.type === 'json' && (
-              <textarea 
-                value={selectedComponent.props[key] || ''}
-                onChange={e => handleChange(key, e.target.value)}
-                rows={4}
-                className="w-full text-xs font-mono border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-gray-50"
-              />
-            )}
+              {field.type === 'boolean' && (
+                <div className="flex items-center mt-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedComponent.props[key] || false}
+                    onChange={e => handleChange(key, e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-600">Enabled</span>
+                </div>
+              )}
 
-            {field.type === 'api' && (
-               <div className="flex items-center rounded-md shadow-sm">
-                 <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-xs">
-                   GET
-                 </span>
-                 <input
-                   type="text"
-                   value={selectedComponent.props[key] || ''}
-                   onChange={e => handleChange(key, e.target.value)}
-                   className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
-                 />
-               </div>
-            )}
-             
-            {field.type === 'event' && (
-               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                  <div className="flex justify-between items-center mb-2">
-                     <span className="font-semibold text-yellow-800">Event Handler</span>
-                     <span className="bg-yellow-200 text-yellow-800 px-1.5 rounded text-[10px]">JS</span>
-                  </div>
-                  <select 
+              {field.type === 'color' && (
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="color" 
+                    value={selectedComponent.props[key] || '#ffffff'}
+                    onChange={e => handleChange(key, e.target.value)}
+                    className="h-8 w-12 border border-gray-300 p-0.5 rounded cursor-pointer"
+                  />
+                  <input 
+                    type="text"
                     value={selectedComponent.props[key] || ''}
                     onChange={e => handleChange(key, e.target.value)}
-                    className="w-full text-sm border-yellow-300 rounded-md focus:border-yellow-500 focus:ring-yellow-500 p-1.5 border bg-white mb-2"
-                  >
-                    {field.options?.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-               </div>
-            )}
-          </div>
-        ))}
+                    className="flex-1 text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border font-mono"
+                  />
+                </div>
+              )}
+
+              {field.type === 'select' && (
+                <select 
+                  value={selectedComponent.props[key] || ''}
+                  onChange={e => handleChange(key, e.target.value)}
+                  className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-white"
+                >
+                  <option value="" disabled>Select option</option>
+                  {field.options?.map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              )}
+
+              {field.type === 'json' && (
+                <textarea 
+                  value={selectedComponent.props[key] || ''}
+                  onChange={e => handleChange(key, e.target.value)}
+                  rows={4}
+                  className="w-full text-xs font-mono border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border bg-gray-50"
+                />
+              )}
+
+              {field.type === 'api' && (
+                <div className="flex items-center rounded-md shadow-sm">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-xs">
+                    HTTP
+                  </span>
+                  <input
+                    type="text"
+                    value={selectedComponent.props[key] || ''}
+                    onChange={e => handleChange(key, e.target.value)}
+                    placeholder="https://api.example.com"
+                    className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+                  />
+                </div>
+              )}
+              
+              {field.type === 'event' && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-yellow-800">Event Handler</span>
+                      <span className="bg-yellow-200 text-yellow-800 px-1.5 rounded text-[10px]">JS</span>
+                    </div>
+                    <select 
+                      value={selectedComponent.props[key] || ''}
+                      onChange={e => handleChange(key, e.target.value)}
+                      className="w-full text-sm border-yellow-300 rounded-md focus:border-yellow-500 focus:ring-yellow-500 p-1.5 border bg-white mb-2"
+                    >
+                      {field.options?.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                </div>
+              )}
+            </div>
+          );
+        })}
         
         {/* Linkage / Advanced Section */}
         <div className="mt-8 pt-6 border-t border-gray-200">
