@@ -22,22 +22,38 @@ export class ComponentRegistryService {
       icon: LayoutTemplate,
       isContainer: true,
       defaultProps: {
-        padding: 'p-4',
-        background: '#ffffff',
-        borderColor: '#e2e8f0',
-        borderWidth: '1px',
-        layout: 'flex-col',
         width: '100%',
         height: 'auto',
+        padding: 'p-4',
+        background: 'transparent',
+        borderColor: '#e2e8f0',
+        borderWidth: '1px',
+        visible: true,
+        // Layout Config
+        layoutMode: 'flex', 
+        flexDirection: 'column', 
+        flexWrap: 'nowrap',
+        justifyContent: 'start',
+        alignItems: 'stretch',
+        gap: 16,
+        columnCount: 3, 
       },
       propSchema: {
-        width: { label: 'Width', type: 'text', description: 'e.g., 100%, 300px' },
-        height: { label: 'Height', type: 'text', description: 'e.g., auto, 200px' },
-        layout: { label: 'Direction', type: 'select', options: ['flex-row', 'flex-col'] },
+        width: { label: 'Width', type: 'text', description: 'e.g. 100%, 300px' },
+        height: { label: 'Height', type: 'text', description: 'e.g. auto, 500px' },
         padding: { label: 'Padding', type: 'select', options: ['p-0', 'p-2', 'p-4', 'p-8'] },
-        background: { label: 'Background Color', type: 'color' },
+        background: { label: 'Background', type: 'color' },
         borderColor: { label: 'Border Color', type: 'color' },
-        borderWidth: { label: 'Border Width', type: 'select', options: ['0px', '1px', '2px', '4px'] },
+        borderWidth: { label: 'Border Width', type: 'select', options: ['0px', '1px', '2px', '4px', '1px dashed'] },
+        visible: { label: 'Visible', type: 'boolean' },
+        // Layout Engine
+        layoutMode: { label: 'Layout Mode', type: 'select', options: ['flex', 'grid', 'masonry'] },
+        flexDirection: { label: 'Direction (Flex)', type: 'select', options: ['row', 'column'] },
+        flexWrap: { label: 'Wrap (Flex)', type: 'select', options: ['nowrap', 'wrap'] },
+        justifyContent: { label: 'Justify', type: 'select', options: ['start', 'center', 'end', 'space-between'] },
+        alignItems: { label: 'Align', type: 'select', options: ['start', 'center', 'end', 'stretch'] },
+        gap: { label: 'Gap (px)', type: 'number' },
+        columnCount: { label: 'Columns (Grid/Masonry)', type: 'number' },
       }
     },
     Button: {
@@ -46,28 +62,40 @@ export class ComponentRegistryService {
       category: 'Basic',
       icon: MousePointerClick,
       defaultProps: {
-        text: 'Get User Info',
+        text: 'Update Status',
         variant: 'blue',
         size: 'md',
-        actionType: 'apiRequest',
+        actionType: 'controlComponent', // Default to new action for demo
+        // API Props
         variableKey: '',
         variableValue: '',
-        apiUrl: 'https://jsonplaceholder.typicode.com/users/1',
+        apiUrl: 'https://jsonplaceholder.typicode.com/users',
         method: 'GET',
-        responseKey: 'userData'
+        responseKey: 'tableData',
+        // Component Control Props
+        targetId: '', 
+        targetProp: 'color',
+        targetValue: 'green'
       },
       propSchema: {
         text: { label: 'Button Text', type: 'text' },
         variant: { label: 'Color Variant', type: 'select', options: ['blue', 'gray', 'red', 'green'] },
         size: { label: 'Size', type: 'select', options: ['sm', 'md', 'lg'] },
-        actionType: { label: 'Interaction', type: 'select', options: ['none', 'setVariable', 'apiRequest', 'alert'], description: 'Action on click' },
+        actionType: { label: 'Interaction', type: 'select', options: ['none', 'setVariable', 'apiRequest', 'controlComponent', 'alert'], description: 'Action on click' },
+        
+        // Control Component Props
+        targetId: { label: 'Target ID', type: 'text', description: 'ID of component to control' },
+        targetProp: { label: 'Target Prop', type: 'text', description: 'Property to update (e.g. color, visible)' },
+        targetValue: { label: 'New Value', type: 'text', description: 'Value to set (true/false/red)' },
+
         // Set Variable Props
-        variableKey: { label: 'Set Var Name', type: 'text', description: 'For "Set Variable" action' },
+        variableKey: { label: 'Set Var Name', type: 'text' },
         variableValue: { label: 'Set Var Value', type: 'text' },
+        
         // API Request Props
-        apiUrl: { label: 'API URL', type: 'api', description: 'Supports {variable} interpolation' },
+        apiUrl: { label: 'API URL', type: 'api' },
         method: { label: 'HTTP Method', type: 'select', options: ['GET', 'POST', 'PUT', 'DELETE'] },
-        responseKey: { label: 'Save Response To', type: 'text', description: 'Variable name to save JSON result' }
+        responseKey: { label: 'Save Response To', type: 'text' }
       }
     },
     Tag: {
@@ -76,12 +104,14 @@ export class ComponentRegistryService {
       category: 'Basic',
       icon: Type,
       defaultProps: {
-        label: 'User: {userData.name}',
-        color: 'blue'
+        label: 'Status: Pending',
+        color: 'gray',
+        visible: true
       },
       propSchema: {
         label: { label: 'Tag Label', type: 'text', description: 'Supports {userData.name}' },
-        color: { label: 'Color Theme', type: 'select', options: ['green', 'blue', 'yellow', 'red', 'purple'] }
+        color: { label: 'Color Theme', type: 'select', options: ['green', 'blue', 'yellow', 'red', 'purple', 'gray'] },
+        visible: { label: 'Visible', type: 'boolean' }
       }
     },
 
@@ -95,13 +125,15 @@ export class ComponentRegistryService {
         title: 'User Email',
         value: '{userData.email}',
         trend: 'ID: {userData.id}',
-        trendColor: 'gray'
+        trendColor: 'gray',
+        visible: true
       },
       propSchema: {
         title: { label: 'Metric Title', type: 'text' },
-        value: { label: 'Display Value', type: 'text', description: 'Supports {variable.path}' },
+        value: { label: 'Display Value', type: 'text' },
         trend: { label: 'Trend Label', type: 'text' },
-        trendColor: { label: 'Trend Color', type: 'select', options: ['green', 'red', 'gray'] }
+        trendColor: { label: 'Trend Color', type: 'select', options: ['green', 'red', 'gray'] },
+        visible: { label: 'Visible', type: 'boolean' }
       }
     },
     DataTable: {
@@ -110,14 +142,20 @@ export class ComponentRegistryService {
       category: 'Data',
       icon: Table,
       defaultProps: {
-        apiEndpoint: '/api/users/list?status={status}',
+        dataSourceType: 'variable',
+        apiEndpoint: '/api/users/list',
+        dataVariable: 'tableData',
         rowsPerPage: 5,
-        columns: '[{"key": "id", "title": "ID"}, {"key": "name", "title": "Name"}, {"key": "status", "title": "Status"}]'
+        columns: '[{"key": "id", "title": "ID"}, {"key": "name", "title": "Name"}, {"key": "email", "title": "Email"}]',
+        visible: true
       },
       propSchema: {
-        apiEndpoint: { label: 'Data Source API', type: 'api', description: 'Use {variable} to inject dynamic values' },
+        dataSourceType: { label: 'Data Source', type: 'select', options: ['api', 'variable'] },
+        apiEndpoint: { label: 'API Endpoint', type: 'api' },
+        dataVariable: { label: 'Data Variable', type: 'text' },
         rowsPerPage: { label: 'Rows Per Page', type: 'number' },
-        columns: { label: 'Columns JSON', type: 'json' }
+        columns: { label: 'Columns JSON', type: 'json' },
+        visible: { label: 'Visible', type: 'boolean' }
       }
     },
     Chart: {
@@ -128,12 +166,14 @@ export class ComponentRegistryService {
       defaultProps: {
         title: 'Monthly Traffic',
         type: 'bar',
-        dataUrl: '/api/metrics/traffic?period={period}'
+        dataUrl: '/api/metrics/traffic?period={period}',
+        visible: true
       },
       propSchema: {
         title: { label: 'Chart Title', type: 'text' },
         type: { label: 'Chart Type', type: 'select', options: ['bar', 'line', 'area'] },
-        dataUrl: { label: 'Data Source', type: 'api', description: 'Supports {period} injection' }
+        dataUrl: { label: 'Data Source', type: 'api' },
+        visible: { label: 'Visible', type: 'boolean' }
       }
     },
 
@@ -209,7 +249,7 @@ export class ComponentRegistryService {
       label: 'Interaction Popover',
       category: 'Interactive',
       icon: MessageSquare,
-      isContainer: true, // It acts as a container for interactions
+      isContainer: true, 
       defaultProps: {
         title: 'Details',
         trigger: 'hover',

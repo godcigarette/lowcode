@@ -25,7 +25,6 @@ export const PropertyPanel: React.FC = () => {
         setLoadingSchema(false);
     };
 
-    // Debounce slightly
     const timer = setTimeout(load, 1000);
     return () => clearTimeout(timer);
   }, [selectedComponent?.props?.moduleUrl, selectedComponent?.id]);
@@ -41,7 +40,6 @@ export const PropertyPanel: React.FC = () => {
   }
 
   const def = ComponentRegistryService.get(selectedComponent.type);
-  // Merge static schema with dynamic schema
   const schema = { ...def.propSchema, ...(selectedComponent.dynamicSchema || {}) };
 
   const handleChange = (key: string, value: any) => {
@@ -70,7 +68,25 @@ export const PropertyPanel: React.FC = () => {
       if (['variableKey', 'variableValue'].includes(key)) {
         return actionType === 'setVariable';
       }
+
+      // Fields specific to Component Control
+      if (['targetId', 'targetProp', 'targetValue'].includes(key)) {
+        return actionType === 'controlComponent';
+      }
     }
+    
+    if (selectedComponent.type === 'DataTable') {
+      const sourceType = selectedComponent.props.dataSourceType;
+      
+      if (key === 'apiEndpoint') {
+        return sourceType !== 'variable';
+      }
+      
+      if (key === 'dataVariable') {
+        return sourceType === 'variable';
+      }
+    }
+
     return true;
   };
 
@@ -193,24 +209,6 @@ export const PropertyPanel: React.FC = () => {
                     placeholder="https://api.example.com"
                     className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
                   />
-                </div>
-              )}
-              
-              {field.type === 'event' && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-yellow-800">Event Handler</span>
-                      <span className="bg-yellow-200 text-yellow-800 px-1.5 rounded text-[10px]">JS</span>
-                    </div>
-                    <select 
-                      value={selectedComponent.props[key] || ''}
-                      onChange={e => handleChange(key, e.target.value)}
-                      className="w-full text-sm border-yellow-300 rounded-md focus:border-yellow-500 focus:ring-yellow-500 p-1.5 border bg-white mb-2"
-                    >
-                      {field.options?.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
                 </div>
               )}
             </div>

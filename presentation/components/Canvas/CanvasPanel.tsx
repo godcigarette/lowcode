@@ -12,10 +12,13 @@ import {
   updateComponentAtom,
   isPublishingAtom, 
   publishResultAtom,
-  publishConfigAtom
+  publishConfigAtom,
+  undoAtom,
+  redoAtom,
+  historyAtom
 } from '../../../infrastructure/state/atoms';
 import { COMPONENT_IMPLEMENTATIONS } from '../Renderer/RendererComponents';
-import { Trash2, Info, Box, UploadCloud, Loader2, CheckCircle, ArrowDownRight } from 'lucide-react';
+import { Trash2, Info, Box, UploadCloud, Loader2, CheckCircle, ArrowDownRight, RotateCcw, RotateCw } from 'lucide-react';
 
 const ComponentWrapper: React.FC<{
   node: ComponentInstance;
@@ -92,16 +95,7 @@ const ComponentWrapper: React.FC<{
       const newWidth = startWidth + (moveEvent.clientX - startX);
       const newHeight = startHeight + (moveEvent.clientY - startY);
       
-      // We only update local DOM style for performance during drag
-      // Actual prop update happens on mouseup
       if (elementRef.current) {
-         // This assumes the renderer respects width/height style or we force it via wrapper
-         // For now, we are updating the wrapper size? No, Renderer handles size props.
-         // We can't update Renderer props in real-time easily without Atom updates.
-         // So for smooth preview, we might just set the wrapper style directly
-         // But here we will trigger prop updates, maybe debounced?
-         // Let's do straightforward prop updates but maybe not on every pixel if slow.
-         // For this demo, let's just use atoms. If it lags, we optimize.
          updateComponent({
             id: node.id,
             updates: {
@@ -126,7 +120,7 @@ const ComponentWrapper: React.FC<{
 
   return (
     <div 
-      className={`relative group ${isSelected ? 'z-10' : 'z-0'} ${depth === 0 ? 'h-full' : ''}`}
+      className={`relative group ${isSelected ? 'z-10' : 'z-0'} box-border`}
       onClick={(e) => {
         e.stopPropagation();
         setSelectedId(node.id);
@@ -151,9 +145,8 @@ const ComponentWrapper: React.FC<{
       <div 
         ref={elementRef}
         className={`
-          relative rounded transition-all duration-75
+          relative rounded transition-all duration-75 box-border
           ${isSelected ? 'ring-2 ring-blue-600 ring-offset-2' : 'hover:ring-1 hover:ring-blue-300 ring-offset-1'}
-          ${depth === 0 ? 'h-full' : ''}
           ${isOver && !isSelected ? 'ring-2 ring-blue-300 ring-inset bg-blue-50/30' : ''}
         `}
       >
@@ -163,7 +156,7 @@ const ComponentWrapper: React.FC<{
          
          {/* Container Empty State Helper */}
          {isContainer && node.children.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none min-h-[50px]">
                <div className="flex flex-col items-center justify-center text-gray-400 opacity-40">
                  <Box size={20} className="mb-1"/>
                  <span className="text-[10px]">Empty {def.label}</span>
@@ -189,10 +182,14 @@ export const CanvasPanel: React.FC = () => {
   const [tree] = useAtom(treeAtom);
   const [isPublishing] = useAtom(isPublishingAtom);
   const [publishResult, setPublishResult] = useAtom(publishResultAtom);
+  const [history] = useAtom(historyAtom);
   
   const addComponent = useSetAtom(addComponentAtom);
   const publishConfig = useSetAtom(publishConfigAtom);
   const setSelectedId = useSetAtom(selectedIdAtom);
+  
+  const performUndo = useSetAtom(undoAtom);
+  const performRedo = useSetAtom(redoAtom);
 
   const handleRootDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -202,6 +199,27 @@ export const CanvasPanel: React.FC = () => {
         addComponent({ newItem: newComponent });
     }
   };
+
+  // Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          performRedo();
+        } else {
+          e.preventDefault();
+          performUndo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        performRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [performUndo, performRedo]);
 
   return (
     <div 
@@ -213,10 +231,34 @@ export const CanvasPanel: React.FC = () => {
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-10">
         <h1 className="text-lg font-bold text-gray-800">OpsCanvas</h1>
         <div className="flex items-center space-x-4">
+           
+           {/* Undo/Redo Controls */}
+           <div className="flex items-center bg-gray-100 rounded p-0.5 space-x-0.5 border border-gray-200">
+             <button
+               onClick={(e) => { e.stopPropagation(); performUndo(); }}
+               disabled={history.past.length === 0}
+               className="p-1.5 rounded hover:bg-white hover:shadow-sm text-gray-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none transition-all"
+               title="Undo (Ctrl+Z)"
+             >
+               <RotateCcw size={14} />
+             </button>
+             <button
+               onClick={(e) => { e.stopPropagation(); performRedo(); }}
+               disabled={history.future.length === 0}
+               className="p-1.5 rounded hover:bg-white hover:shadow-sm text-gray-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none transition-all"
+               title="Redo (Ctrl+Shift+Z)"
+             >
+               <RotateCw size={14} />
+             </button>
+           </div>
+
+           <div className="h-4 w-px bg-gray-300 mx-2"></div>
+
            <div className="flex items-center space-x-2 text-xs text-gray-500">
              <Info size={14} />
-             <span>Drag & Drop Configurator</span>
+             <span>Drag & Drop</span>
            </div>
+           
            <button 
              onClick={(e) => { e.stopPropagation(); publishConfig(); }}
              disabled={isPublishing}
